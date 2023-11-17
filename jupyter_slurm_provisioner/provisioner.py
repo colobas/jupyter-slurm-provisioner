@@ -461,6 +461,10 @@ class SlurmProvisioner(KernelProvisionerBase):
 
         if self.kernel_config.get("gpus", "0") not in ["0", "", None]:
             salloc_cmd += [f"--gres=gpu:{self.kernel_config['gpus']}"]
+        if self.kernel_config.get("cpus") is not None:
+            salloc_cmd += [f"--cpus-per-task={self.kernel_config['cpus']}"]
+        if self.kernel_config.get("mem") is not None:
+            salloc_cmd += [f"--mem={self.kernel_config['mem']}"]
         if self.kernel_config.get("reservation") != None:
             salloc_cmd += ["--reservation", str(self.kernel_config["reservation"])]
 

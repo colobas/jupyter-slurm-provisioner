@@ -18,6 +18,8 @@ without the dependency on `jutil`.
         "kernel_provisioner": {
             "config": {
                 "gpus": "0",
+                "mem": "1G",
+                "cpus": "1",
                 "partition": "this,that,other",
                 "account": "...",
                 "reservation": null,
