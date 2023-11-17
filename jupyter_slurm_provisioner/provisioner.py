@@ -101,7 +101,7 @@ class SlurmProvisioner(KernelProvisionerBase):
         ).get("config", {})
 
         # We need at least these configuration. For everything else we'll use default values.
-        required_keys = {"kernel_argv", "project", "partition", "nodes", "runtime"}
+        required_keys = {"kernel_argv", "partition", "runtime"}
         if not required_keys <= set(self.kernel_config.keys()):
             raise Exception(
                 "Slurm Wrapper not configured correctly. Use the Slurm Wrapper sidebar extension to configure this kernel."
@@ -112,7 +112,7 @@ class SlurmProvisioner(KernelProvisionerBase):
         self.parent.kernel_spec.argv = self.kernel_config["kernel_argv"]
 
         # kernel language can be changed. Depending on the kernel that will be started
-        if self.kernel_config.get("kernel_language", "None") != "None":
+        if self.kernel_config.get("kernel_language", None) is not None:
             self.parent.kernel_spec.language = self.kernel_config["kernel_language"]
 
         # If we want to reuse an allocation, we have to know its id
@@ -439,47 +439,29 @@ class SlurmProvisioner(KernelProvisionerBase):
         await self.slurm_allocation_running()
 
     async def slurm_allocate(self):
-        # start slurm allocation
-        # Do not run anything on it yet
-        get_budget_account_cmd = [
-            "/usr/libexec/jutil-exe",
-            "env",
-            "activate",
-            "-p",
-            self.kernel_config["project"],
-        ]
-        try:
-            get_budget_account_output = (
-                subprocess.check_output(get_budget_account_cmd).decode().strip()
-            )
-        except Exception as e:
-            raise e
-        jutil_vars = {
-            x.group(1): x.group(2)
-            for x in re.finditer(r"export\ ([^=]+)=([^;]+)", get_budget_account_output)
-        }
-
         self.slurm_allocation_name = uuid.uuid4().hex
 
         salloc_cmd = [
             "salloc",
+            "--nodes",
+            "1",
             "--no-shell",
-            "--account",
-            str(jutil_vars["BUDGET_ACCOUNTS"]),
             "--partition",
             str(self.kernel_config["partition"]),
-            "--nodes",
-            str(self.kernel_config["nodes"]),
-            "--time",
-            str(self.kernel_config["runtime"]),
             "--job-name",
             str(self.slurm_allocation_name),
             "--begin",
             "now",
         ]
+
+        if "account" in self.kernel_config:
+            salloc_cmd += ["--account", str(self.kernel_config["account"])]
+        if "runtime" in self.kernel_config:
+            salloc_cmd += ["--time", str(self.kernel_config["runtime"])]
+
         if self.kernel_config.get("gpus", "0") not in ["0", "", None]:
             salloc_cmd += [f"--gres=gpu:{self.kernel_config['gpus']}"]
-        if self.kernel_config.get("reservation", "None") != "None":
+        if self.kernel_config.get("reservation") != None:
             salloc_cmd += ["--reservation", str(self.kernel_config["reservation"])]
 
         self.slurm_salloc_process = start_popen(salloc_cmd)
@@ -613,6 +595,7 @@ class SlurmProvisioner(KernelProvisionerBase):
         extra_arguments = kwargs.pop("extra_arguments", [])
         kernel_cmd = km.format_kernel_cmd(extra_arguments=extra_arguments)
         self.slurm_allocation_node = random.choice(self.slurm_allocation_nodelist)
+
         srun_cmd = [
             "srun",
             "--jobid",
@@ -626,7 +609,14 @@ class SlurmProvisioner(KernelProvisionerBase):
             "--job-name",
             self.kernel_id,
             "--exclusive",
-        ] + kernel_cmd
+        ]
+
+        if "env" in self.kernel_config:
+            for var, value in self.kernel_config["env"].items():
+                srun_cmd += ["--export", f"{var}={value}"]
+
+        srun_cmd += kernel_cmd
+
         self.slurm_launch_kernel_process = start_popen(srun_cmd)
         self.update_alloc_storage_add_kernel_id()
 
