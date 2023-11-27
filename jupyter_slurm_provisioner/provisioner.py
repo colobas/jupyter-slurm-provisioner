@@ -260,9 +260,9 @@ class SlurmProvisioner(KernelProvisionerBase):
             self.update_alloc_storage_del_kernel_id()
 
         self.log.info("Wait for scancel to finish")
-        cancel_time = (datetime.now() + timedelta(seconds=120)).timestamp()
+        cancel_time = (datetime.now() + timedelta(seconds=240)).timestamp()
         while datetime.now().timestamp() < cancel_time:
-            # Wait until jobstep is no longer listed in sacct, but max 120 seconds
+            # Wait until jobstep is no longer listed in sacct, but max 240 seconds
             sacct_cmd = [
                 "sacct",
                 "-o",
@@ -482,7 +482,7 @@ class SlurmProvisioner(KernelProvisionerBase):
         ]
 
         self.log.info("Wait for allocation to be listed")
-        cancel_time = (datetime.now() + timedelta(seconds=120)).timestamp()
+        cancel_time = (datetime.now() + timedelta(seconds=240)).timestamp()
         while datetime.now().timestamp() < cancel_time:
             output = subprocess.check_output(squeue_cmd).decode().strip()
             if output:
@@ -564,7 +564,7 @@ class SlurmProvisioner(KernelProvisionerBase):
             str(self.slurm_allocation_name),
         ]
 
-        cancel_time = (datetime.now() + timedelta(seconds=120)).timestamp()
+        cancel_time = (datetime.now() + timedelta(seconds=240)).timestamp()
         while datetime.now().timestamp() < cancel_time:
             nodelist_raw = (
                 subprocess.check_output(sacct_cmd).decode().strip().split("\n")[0]
@@ -703,9 +703,9 @@ class SlurmProvisioner(KernelProvisionerBase):
             str(self.slurm_allocation_name),
         ]
         self.log.info("Wait for jobstep to be listed")
-        cancel_time = (datetime.now() + timedelta(seconds=120)).timestamp()
+        cancel_time = (datetime.now() + timedelta(seconds=240)).timestamp()
         while datetime.now().timestamp() < cancel_time:
-            # Wait until jobstep is no longer listed in sacct, but max 120 seconds
+            # Wait until jobstep is no longer listed in sacct, but max 240 seconds
             all_steps_raw = subprocess.check_output(sacct_cmd).decode().strip()
             if len(all_steps_raw) == 0:
                 await asyncio.sleep(1)
