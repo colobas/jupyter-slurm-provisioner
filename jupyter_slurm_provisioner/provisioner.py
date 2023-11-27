@@ -696,6 +696,9 @@ class SlurmProvisioner(KernelProvisionerBase):
         while datetime.now().timestamp() < cancel_time:
             # Wait until jobstep is no longer listed in sacct, but max 120 seconds
             all_steps_raw = subprocess.check_output(sacct_cmd).decode().strip()
+            if len(all_steps_raw) == 0:
+                await asyncio.sleep(1)
+                continue
             all_steps_tuples = [x.split(";") for x in all_steps_raw.split("\n")]
             slurm_jobstep_id_list = [
                 x[0] for x in all_steps_tuples if x[1] == self.kernel_id
