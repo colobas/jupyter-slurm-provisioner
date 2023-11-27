@@ -279,7 +279,11 @@ class SlurmProvisioner(KernelProvisionerBase):
             )
             self.log.info(f"Wait for scancel to finish - {all_steps_list}")
             if self.slurm_jobstep_id in all_steps_list:
-                subprocess.check_output(scancel_cmd)
+                try:
+                    subprocess.check_output(scancel_cmd)
+                except subprocess.CalledProcessError:
+                    # scancel might fail if jobstep is already finished
+                    pass
                 await asyncio.sleep(1)
             else:
                 return
