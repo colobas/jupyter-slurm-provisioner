@@ -7,6 +7,7 @@ import signal
 import socket
 import subprocess
 import uuid
+import time
 from datetime import datetime
 from datetime import timedelta
 
@@ -433,7 +434,7 @@ class SlurmProvisioner(KernelProvisionerBase):
             self.slurm_allocation_endtime = storage_file.get(
                 self.slurm_allocation_id, {}
             ).get("endtime", 0)
-            await self.slurm_allocation_store_nodelist()
+            self.slurm_allocation_store_nodelist()
 
         # Wait until it's up and running
         await self.slurm_allocation_running()
@@ -550,7 +551,7 @@ class SlurmProvisioner(KernelProvisionerBase):
                 await asyncio.sleep(5)
         return
 
-    async def slurm_allocation_store_nodelist(self):
+    def slurm_allocation_store_nodelist(self):
         sacct_cmd = [
             "sacct",
             "-o",
@@ -562,37 +563,47 @@ class SlurmProvisioner(KernelProvisionerBase):
             "--name",
             str(self.slurm_allocation_name),
         ]
-        nodelist_raw = (
-            subprocess.check_output(sacct_cmd).decode().strip().split("\n")[0]
-        )
-        # sacct shows nodelist like this:
-        # jsfc078
-        # jsfc[078-079]
-        # jsfc[018-029,031-049,052]
-        # make a usable python list out of this
-        if "[" not in nodelist_raw:
-            self.slurm_allocation_nodelist = [nodelist_raw]
-        else:
-            self.slurm_allocation_nodelist = []
-            prefix, all_numbers = nodelist_raw.split("[")
-            all_numbers = all_numbers.rstrip("]")
-            all_numbers_blocks = all_numbers.split(",")
-            for block in all_numbers_blocks:
-                block_s = block.split("-")
-                start_s = block_s[0]
-                if len(block_s) == 2:
-                    end_s = block_s[1]
-                else:
-                    end_s = start_s
-                start = int(start_s)
-                end = int(end_s)
-                len_s = len(start_s)
-                for i in range(start, end + 1):
-                    self.slurm_allocation_nodelist.append(
-                        f"{prefix}{str(i).zfill(len_s)}"
-                    )
 
-        self.update_alloc_storage_nodelist_endtime()
+        cancel_time = (datetime.now() + timedelta(seconds=120)).timestamp()
+        while datetime.now().timestamp() < cancel_time:
+            nodelist_raw = (
+                subprocess.check_output(sacct_cmd).decode().strip().split("\n")[0]
+            )
+
+            if len(nodelist_raw) == 0:
+                time.sleep(1)
+                continue
+
+            # sacct shows nodelist like this:
+            # jsfc078
+            # jsfc[078-079]
+            # jsfc[018-029,031-049,052]
+            # make a usable python list out of this
+            if "[" not in nodelist_raw:
+                self.slurm_allocation_nodelist = [nodelist_raw]
+            else:
+                self.slurm_allocation_nodelist = []
+                prefix, all_numbers = nodelist_raw.split("[")
+                all_numbers = all_numbers.rstrip("]")
+                all_numbers_blocks = all_numbers.split(",")
+                for block in all_numbers_blocks:
+                    block_s = block.split("-")
+                    start_s = block_s[0]
+                    if len(block_s) == 2:
+                        end_s = block_s[1]
+                    else:
+                        end_s = start_s
+                    start = int(start_s)
+                    end = int(end_s)
+                    len_s = len(start_s)
+                    for i in range(start, end + 1):
+                        self.slurm_allocation_nodelist.append(
+                            f"{prefix}{str(i).zfill(len_s)}"
+                        )
+
+            self.update_alloc_storage_nodelist_endtime()
+            return
+        raise Exception("Could not receive slurm jobid for kernel")
 
     async def slurm_launch_kernel(self, **kwargs):
         km = self.parent
@@ -659,7 +670,7 @@ class SlurmProvisioner(KernelProvisionerBase):
                 await self.slurm_allocate()
             else:
                 await self.slurm_verify_allocation()
-            await self.slurm_allocation_store_nodelist()
+            self.slurm_allocation_store_nodelist()
         except Exception as e:
             self.log.exception("Exception in pre_launch")
             self.log.debug("Set state to FAILED")
