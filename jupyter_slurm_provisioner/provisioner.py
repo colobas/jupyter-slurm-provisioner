@@ -628,6 +628,8 @@ class SlurmProvisioner(KernelProvisionerBase):
 
         if "env" in self.kernel_config:
             for var, value in self.kernel_config["env"].items():
+                # expand `value` if it contains any env vars
+                value = os.path.expandvars(value)
                 srun_cmd += ["--export", f"{var}={value}"]
 
         srun_cmd += kernel_cmd
