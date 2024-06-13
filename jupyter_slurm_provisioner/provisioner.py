@@ -471,7 +471,7 @@ class SlurmProvisioner(KernelProvisionerBase):
             salloc_cmd += [f"--cpus-per-task={self.kernel_config['cpus']}"]
         if self.kernel_config.get("mem") is not None:
             salloc_cmd += [f"--mem={self.kernel_config['mem']}"]
-        if self.kernel_config.get("reservation") != None:
+        if self.kernel_config.get("reservation") is not None:
             salloc_cmd += ["--reservation", str(self.kernel_config["reservation"])]
 
         self.slurm_salloc_process = start_popen(salloc_cmd)
