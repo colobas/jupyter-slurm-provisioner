@@ -637,6 +637,15 @@ class SlurmProvisioner(KernelProvisionerBase):
                 value = os.path.expandvars(value)
                 srun_cmd += ["--export", f"{var}={value}"]
 
+        if self.kernel_config.get("gpus", "0") not in ["0", "", None]:
+            srun_cmd += [f"--gres=gpu:{self.kernel_config['gpus']}"]
+        if self.kernel_config.get("cpus") is not None:
+            srun_cmd += [f"--cpus-per-task={self.kernel_config['cpus']}"]
+        if self.kernel_config.get("mem") is not None:
+            srun_cmd += [f"--mem={self.kernel_config['mem']}"]
+        if self.kernel_config.get("reservation") is not None:
+            srun_cmd += ["--reservation", str(self.kernel_config["reservation"])]
+
         srun_cmd += kernel_cmd
 
         self.slurm_launch_kernel_process = start_popen(srun_cmd)
